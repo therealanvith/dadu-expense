@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react"
+import { useState } from "react"
+import React from "react"
 
 type Expense = {
   id: string
@@ -9,27 +10,37 @@ type Expense = {
   description: string
   date: string
   source: string
+  created_at: string
 }
 
-const ExpenseTable = forwardRef((_, ref) => {
-  const [expenses, setExpenses] = useState<Expense[]>([])
+type Props = {
+  expenses: Expense[]
+  onDelete: (id: string) => void
+  onEdit: () => void
+}
+
+const CATEGORIES = ["food", "travel", "health", "shopping", "entertainment","investments", "other"]
+
+export default function ExpenseTable({ expenses, onDelete, onEdit }: Props) {
   const [search, setSearch] = useState("")
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ amount: 0, category: "", description: ""})
 
-  async function fetchExpenses() {
-    const res = await fetch("/api/expenses")
-    const data = await res.json()
-    setExpenses(data)
+  function startEdit(e: Expense) {
+    setEditingId(e.id)
+    setEditForm({ amount: e.amount, category: e.category, description: e.description })
   }
 
-  useImperativeHandle(ref, () => ({ refresh: fetchExpenses }))
-
-  useEffect(() => { fetchExpenses() }, [])
-
-  async function handleDelete(id: string) {
-    await fetch(`/api/expenses/${id}`, { method: "DELETE" })
-    setExpenses(prev => prev.filter(e => e.id !== id))
+  async function saveEdit(id: string) {
+    await fetch(`/api/expenses/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editForm)
+    })
+    setEditingId(null)
+    onEdit()
   }
 
   const filtered = expenses.filter(e => {
@@ -48,6 +59,7 @@ const ExpenseTable = forwardRef((_, ref) => {
         <thead>
           <tr>
             <th>Date</th>
+            <th>Time</th>
             <th>Description</th>
             <th>Category</th>
             <th>Amount</th>
@@ -57,22 +69,36 @@ const ExpenseTable = forwardRef((_, ref) => {
         </thead>
         <tbody>
           {filtered.map(e => (
-            <tr key={e.id}>
-              <td>{e.date}</td>
-              <td>{e.description}</td>
-              <td>{e.category}</td>
-              <td>₹{e.amount}</td>
-              <td>{e.source}</td>
-              <td>
-                <button onClick={() => handleDelete(e.id)}>Delete</button>
-              </td>
-            </tr>
+            <React.Fragment key={e.id}>
+              <tr>
+                <td>{new Date(e.created_at).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" })}</td>
+                <td>{new Date(e.created_at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}</td>
+                <td>{e.description}</td>
+                <td>{e.category}</td>
+                <td>₹{e.amount}</td>
+                <td>{e.source}</td>
+                <td>
+                  <button onClick={() => startEdit(e)}>Edit</button>
+                  <button onClick={() => onDelete(e.id)}>Delete</button>
+                </td>
+              </tr>
+              {editingId === e.id && (
+                <tr key={`edit-${e.id}`}>
+                  <td colSpan={7}>
+                    <input type="text" value={editForm.description} onChange={ev => setEditForm(f => ({ ...f, description: ev.target.value }))} />
+                    <select value={editForm.category} onChange={ev => setEditForm(f => ({ ...f, category: ev.target.value }))}>
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <input type="number" value={editForm.amount} onChange={ev => setEditForm(f => ({ ...f, amount: Number(ev.target.value) }))} />
+                    <button onClick={() => saveEdit(e.id)}>Save</button>
+                    <button onClick={() => setEditingId(null)}>Cancel</button>
+                  </td>
+                </tr>
+              )}
+            </React.Fragment>
           ))}
         </tbody>
       </table>
     </div>
   )
-})
-
-ExpenseTable.displayName = "ExpenseTable"
-export default ExpenseTable
+}

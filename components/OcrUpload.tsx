@@ -37,7 +37,6 @@ export default function OcrUpload({ onParsed }: Props) {
   const blob = await new Promise<Blob>((res) => canvas.toBlob((b) => res(b!), "image/png"))
 
   const { data: { text } } = await Tesseract.recognize(blob, "eng")
-  console.log("ocr text:", text)
 
   const res = await fetch("/api/parse-expense", {
     method: "POST",
@@ -47,7 +46,6 @@ export default function OcrUpload({ onParsed }: Props) {
 
 
     const parsed = await res.json()
-    console.log("parsed:", parsed)
     onParsed(parsed)
     setLoading(false)
   }

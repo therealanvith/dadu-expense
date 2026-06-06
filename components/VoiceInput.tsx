@@ -21,13 +21,9 @@ export default function VoiceInput({ onParsed }: Props) {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     const recognition = new SpeechRecognition()
     recognition.lang = "en-IN"
-
-    recognition.onstart = () => console.log("recognition started")
     
     recognition.onresult = async (event: any) => {
-        console.log("got result", event.results)
         const text = event.results[0][0].transcript
-        console.log("transcript:", text)
         setTranscript(text)
         const res = await fetch("/api/parse-expense", {
             method: "POST",
@@ -38,7 +34,6 @@ export default function VoiceInput({ onParsed }: Props) {
         onParsed(parsed)
     }
 
-    recognition.onerror = (event: any) => console.log("error:", event.error)
     recognition.onend = () => setListening(false)
     
     setListening(true)
