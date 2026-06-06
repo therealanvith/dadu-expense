@@ -12,7 +12,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login")
-  }, [status,router])
+  }, [status, router])
+
+  async function handleExpenseParsed(expense: { amount: number; category: string; description: string }, source: string) {
+    await fetch("/api/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...expense,
+        date: new Date().toISOString().split("T")[0],
+        source
+      })
+    })
+  }
 
   if (status === "loading") return <p>Loading...</p>
 
@@ -20,8 +32,8 @@ export default function DashboardPage() {
     <div>
       <h1>Welcome {session?.user?.email}</h1>
       <button onClick={() => signOut({ callbackUrl: "/login" })}>Sign Out</button>
-      <VoiceInput onParsed={(expense) => console.log(expense)} />
-      <OcrUpload onParsed={(expense) => console.log(expense)} />
+      <VoiceInput onParsed={(e) => handleExpenseParsed(e, "voice")} />
+      <OcrUpload onParsed={(e) => handleExpenseParsed(e, "ocr")} />
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Tesseract from "tesseract.js"
+import Image from "next/image"
 
 type ParsedExpense = {
   amount: number
@@ -54,7 +55,9 @@ export default function OcrUpload({ onParsed }: Props) {
   return (
     <div>
       <input type="file" accept="image/*" onChange={handleFile} />
-      {preview && <img src={preview} alt="receipt" width={200} />}
+      {preview && <div style={{ position: "relative", width: 200, height: 200 }}>
+        <Image src={preview} alt="receipt" fill style={{ objectFit: "contain" }} />
+      </div>}
       {loading && <p>Scanning receipt...</p>}
     </div>
   )
