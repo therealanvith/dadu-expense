@@ -7,6 +7,7 @@ import VoiceInput from "@/components/VoiceInput"
 import OcrUpload from "@/components/OcrUpload"
 import ExpenseTable from "@/components/ExpenseTable"
 import Charts from "@/components/Charts"
+import BudgetManager from "@/components/BudgetManager"
 
 type Expense = {
   id: string
@@ -68,6 +69,7 @@ export default function DashboardPage() {
       <OcrUpload onParsed={(e) => handleExpenseParsed(e, "ocr")} />
       <ExpenseTable expenses={expenses} onDelete={handleDelete} onEdit={fetchExpenses} />
       <Charts expenses={expenses} />
+      <BudgetManager expenses={expenses} />
     </div>
   )
 }
