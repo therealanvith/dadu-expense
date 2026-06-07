@@ -21,10 +21,11 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { category, limit_amount } = await req.json()
+  const cleanCategory = String(category).toLowerCase().trim()
 
   const { data, error } = await supabaseAdmin
     .from("budgets")
-    .upsert({ user_id: session.user.email!, category, limit_amount }, { onConflict: "user_id,category" })
+    .upsert({ user_id: session.user.email!, category: cleanCategory, limit_amount }, { onConflict: "user_id,category" })
     .select()
     .single()
 

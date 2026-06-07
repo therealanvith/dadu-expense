@@ -25,7 +25,8 @@ export async function POST() {
   const byCategory: Record<string, number> = {}
   let total = 0
   for (const e of expenses) {
-    byCategory[e.category] = (byCategory[e.category] || 0) + e.amount
+    const cat = e.category.toLowerCase().trim()
+    byCategory[cat] = (byCategory[cat] || 0) + e.amount
     total += e.amount
   }
 

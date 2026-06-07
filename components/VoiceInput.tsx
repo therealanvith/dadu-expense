@@ -1,18 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 "use client"
+
 import { useState } from "react"
 
-type ParsedExpense = {
-  amount: number
-  category: string
-  description: string
-}
+type ParsedExpense = { amount: number; category: string; description: string }
+type Props = { onParsed: (expense: ParsedExpense) => void }
 
-type Props = {
-  onParsed: (expense: ParsedExpense) => void
-}
 const CATEGORIES = ["food", "travel", "health", "shopping", "entertainment", "investments", "other"]
+
 export default function VoiceInput({ onParsed }: Props) {
   const [listening, setListening] = useState(false)
   const [transcript, setTranscript] = useState("")
@@ -22,7 +18,8 @@ export default function VoiceInput({ onParsed }: Props) {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const isSpeechSupported = typeof window !== "undefined" &&
+  const isSpeechSupported =
+    typeof window !== "undefined" &&
     ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
 
   async function parseText(text: string) {
@@ -32,13 +29,16 @@ export default function VoiceInput({ onParsed }: Props) {
       const res = await fetch("/api/parse-expense", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text }),
       })
       const data = await res.json()
+      const cleanCategory = (data.category || "").toLowerCase().trim()
       const result: ParsedExpense = {
         amount: data.amount || 0,
-        category: CATEGORIES.includes(data.category) ? data.category : "other",
-        description: data.description || text
+        category: CATEGORIES.includes(cleanCategory)
+          ? cleanCategory
+          : "other",
+        description: data.description || text,
       }
 
       if (result.amount === 0) {
@@ -68,7 +68,7 @@ export default function VoiceInput({ onParsed }: Props) {
       const confidence = event.results[0][0].confidence
       setTranscript(text)
       if (confidence < 0.5) {
-        setError("Audio unclear. Please check the parsed result before saving.")
+        setError("Audio unclear. Please check before saving.")
       }
       await parseText(text)
     }
@@ -100,54 +100,154 @@ export default function VoiceInput({ onParsed }: Props) {
     setError("")
   }
 
+  function reset() {
+    setParsed(null)
+    setTranscript("")
+    setError("")
+    setManualText("")
+    setUseManual(false)
+  }
+
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       {!useManual ? (
-        <div>
-          <button onClick={startListening} disabled={listening || loading}>
-            {listening ? "🔴 Listening..." : loading ? "Parsing..." : "🎤 Speak Expense"}
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <button
+            className="btn btn-primary"
+            style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}
+            onClick={startListening}
+            disabled={listening || loading}
+          >
+            {listening ? (
+              <>
+                <span className="rec-dot" />
+                <span>Listening…</span>
+              </>
+            ) : loading ? (
+              <span>Parsing…</span>
+            ) : (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                  <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 19v4M8 23h8" />
+                </svg>
+                <span>Speak</span>
+              </>
+            )}
           </button>
-          <button onClick={() => setUseManual(true)}>Type instead</button>
+          {isSpeechSupported && (
+            <button
+              className="btn btn-secondary"
+              style={{ width: "100%" }}
+              onClick={() => setUseManual(true)}
+            >
+              Type instead
+            </button>
+          )}
         </div>
       ) : (
-        <div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           <input
+            type="text"
             placeholder='e.g. "spent 250 on lunch"'
             value={manualText}
             onChange={e => setManualText(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleManualSubmit()}
+            autoFocus
           />
-          <button onClick={handleManualSubmit} disabled={loading}>
-            {loading ? "Parsing..." : "Parse"}
+          <button
+            className="btn btn-primary"
+            style={{ width: "100%" }}
+            onClick={handleManualSubmit}
+            disabled={loading || !manualText.trim()}
+          >
+            {loading ? "Parsing…" : "Parse"}
           </button>
           {isSpeechSupported && (
-            <button onClick={() => setUseManual(false)}>Use voice</button>
+            <button className="btn btn-ghost" onClick={() => setUseManual(false)}>
+              Use voice instead
+            </button>
           )}
         </div>
       )}
-      {transcript && <p>Heard: {transcript}</p>}
-      {error && <p style={{ color: "orange" }}>{error}</p>}
+
+      {transcript && (
+        <div style={{
+          padding: "0.75rem 1rem",
+          borderRadius: "var(--radius-md)",
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border)",
+        }}>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-3)", marginBottom: "0.25rem" }}>Heard</p>
+          <p style={{ fontSize: "0.875rem", color: "var(--text-1)" }}>{transcript}</p>
+        </div>
+      )}
+
+      {error && (
+        <div style={{
+          padding: "0.75rem 1rem",
+          borderRadius: "var(--radius-md)",
+          background: "var(--warning-dim)",
+          border: "1px solid rgba(245,158,11,0.2)",
+          color: "var(--warning)",
+          fontSize: "0.875rem",
+        }}>
+          {error}
+        </div>
+      )}
+
       {parsed && (
-        <div>
-          <p>Review before saving:</p>
-          <input
-            type="number"
-            value={parsed.amount}
-            onChange={e => setParsed(p => p ? { ...p, amount: Number(e.target.value) } : p)}
-          />
-          <select
-            value={parsed.category}
-            onChange={e => setParsed(p => p ? { ...p, category: e.target.value } : p)}
-          >
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <input
-            type="text"
-            value={parsed.description}
-            onChange={e => setParsed(p => p ? { ...p, description: e.target.value } : p)}
-          />
-          <button onClick={confirmAndSave}>✅ Save Expense</button>
-          <button onClick={() => { setParsed(null); setTranscript(""); setError("") }}>Cancel</button>
+        <div style={{
+          padding: "1rem",
+          borderRadius: "var(--radius-md)",
+          background: "var(--bg-elevated)",
+          border: "1px solid var(--border)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.875rem",
+        }}>
+          <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text-2)", margin: 0 }}>
+            Review & edit
+          </p>
+
+          <div>
+            <label>Amount (₹)</label>
+            <input
+              type="number"
+              value={parsed.amount}
+              onChange={e => setParsed(p => p ? { ...p, amount: Number(e.target.value) } : p)}
+              onWheel={e => (e.currentTarget as HTMLInputElement).blur()}
+            />
+          </div>
+
+          <div>
+            <label>Category</label>
+            <select
+              value={parsed.category}
+              onChange={e => setParsed(p => p ? { ...p, category: e.target.value } : p)}
+              style={{ textTransform: "capitalize" }}
+            >
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label>Description</label>
+            <input
+              type="text"
+              value={parsed.description}
+              onChange={e => setParsed(p => p ? { ...p, description: e.target.value } : p)}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            <button className="btn btn-primary" style={{ flex: 1 }} onClick={confirmAndSave}>
+              Save
+            </button>
+            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={reset}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -26,7 +26,7 @@ export async function POST() {
   let sent = 0
   for (const budget of budgets) {
     const spent = expenses
-      .filter(e => e.category === budget.category)
+      .filter(e => e.category.toLowerCase().trim() === budget.category.toLowerCase().trim())
       .reduce((s, e) => s + e.amount, 0)
     const percent = (spent / budget.limit_amount) * 100
     if (percent >= 80) {

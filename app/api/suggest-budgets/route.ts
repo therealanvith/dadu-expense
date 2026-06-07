@@ -20,13 +20,14 @@ export async function GET() {
 
   const totals: Record<string, number> = {}
   for (const e of expenses) {
-    totals[e.category] = (totals[e.category] || 0) + e.amount
+    const cat = e.category.toLowerCase().trim()
+    totals[cat] = (totals[cat] || 0) + e.amount
   }
 
   
   const suggestions: Record<string, number> = {}
   for (const [cat, total] of Object.entries(totals)) {
-    suggestions[cat] = Math.round(total * 1.2)
+    suggestions[cat] = Math.round(total * 1.35)
   }
 
   return NextResponse.json({ suggestions })

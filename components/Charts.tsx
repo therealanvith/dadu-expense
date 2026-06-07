@@ -19,16 +19,34 @@ type Props = { expenses: Expense[] }
 const COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444", "#3b82f6", "#a855f7", "#ec4899"]
 
 export default function Charts({ expenses }: Props) {
+  if (expenses.length === 0) {
+    return (
+      <div className="empty-state card" style={{ padding: "3rem", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: "1rem", opacity: 0.5 }}>
+          <line x1="18" y1="20" x2="18" y2="10" />
+          <line x1="12" y1="20" x2="12" y2="4" />
+          <line x1="6" y1="20" x2="6" y2="14" />
+        </svg>
+        <p>No data available for charts.</p>
+        <p style={{ fontSize: "0.8125rem", color: "var(--text-3)" }}>Add your first expense to see spending analysis.</p>
+      </div>
+    )
+  }
+
   const byDate = expenses.reduce((acc: Record<string, number>, e) => {
-    const date = new Date(e.created_at).toLocaleDateString("en-IN", {
-      timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit"
-    })
-    acc[date] = (acc[date] || 0) + e.amount
+    const dateKey = new Date(e.created_at).toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+    const d = new Date(dateKey)
+    const yyyymmdd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+    acc[yyyymmdd] = (acc[yyyymmdd] || 0) + e.amount
     return acc
   }, {})
+
   const lineData = Object.entries(byDate)
-    .map(([date, total]) => ({ date, total }))
-    .sort((a, b) => a.date.localeCompare(b.date))
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, total]) => {
+      const [year, month, day] = date.split("-")
+      return { date: `${day}/${month}/${year}`, total }
+    })
 
   const byCategory = expenses.reduce((acc: Record<string, number>, e) => {
     acc[e.category] = (acc[e.category] || 0) + e.amount
@@ -58,27 +76,27 @@ export default function Charts({ expenses }: Props) {
   ]
 
   const heatmapData: Record<string, number> = {}
-  const today = new Date()
+  const localToday = istNow
+
   for (let i = 29; i >= 0; i--) {
-    const d = new Date(today)
-    d.setDate(today.getDate() - i)
-    const key = d.toISOString().slice(0, 10)
+    const d = new Date(localToday)
+    d.setDate(localToday.getDate() - i)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
     heatmapData[key] = 0
   }
   expenses.forEach(e => {
-    const key = new Date(e.created_at).toISOString().slice(0, 10)
+    const localD = new Date(new Date(e.created_at).toLocaleString("en-US", { timeZone: "Asia/Kolkata" }))
+    const key = `${localD.getFullYear()}-${String(localD.getMonth() + 1).padStart(2, "0")}-${String(localD.getDate()).padStart(2, "0")}`
     if (key in heatmapData) heatmapData[key] += e.amount
   })
   const heatmapDays = Object.entries(heatmapData)
   const maxAmount = Math.max(...heatmapDays.map(([, v]) => v), 1)
 
   function heatColor(amount: number) {
-    if (amount === 0) return "#1a1a2e"
+    if (amount === 0) return "var(--bg-elevated)"
     const intensity = amount / maxAmount
-    if (intensity < 0.25) return "#312e6e"
-    if (intensity < 0.5) return "#4f46e5"
-    if (intensity < 0.75) return "#6366f1"
-    return "#818cf8"
+    const opacity = Math.max(0.1, Math.min(1, Math.ceil(intensity * 10) / 10))
+    return `rgba(99, 102, 241, ${opacity})`
   }
 
   const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, value }: any) => {
@@ -87,57 +105,84 @@ export default function Charts({ expenses }: Props) {
     const x = cx + radius * Math.cos(-midAngle * RADIAN)
     const y = cy + radius * Math.sin(-midAngle * RADIAN)
     return (
-      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12}>
+      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11}>
         ₹{value}
       </text>
     )
   }
 
   return (
-    <div>
-      <h2>Spending Heatmap (Last 30 Days)</h2>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-        {heatmapDays.map(([date, amount]) => (
-          <div
-            key={date}
-            title={`${date}: ₹${Math.round(amount)}`}
-            style={{ width: 28, height: 28, borderRadius: 4, background: heatColor(amount), cursor: "default" }}
-          />
-        ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      
+      <div className="card" style={{ padding: "1.5rem" }}>
+        <h2 className="section-title" style={{ marginBottom: "1rem" }}>Spending Heatmap (Last 30 Days)</h2>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(30, minmax(0, 1fr))",
+          gap: 6,
+          marginBottom: "0.5rem",
+          maxWidth: "100%"
+        }}>
+          {heatmapDays.map(([date, amount]) => {
+            const [year, month, day] = date.split("-")
+            const indianDate = `${day}/${month}/${year}`
+            return (
+              <div
+                key={date}
+                title={`${indianDate}: ₹${Math.round(amount)}`}
+                style={{
+                  aspectRatio: "1",
+                  borderRadius: 4,
+                  background: heatColor(amount),
+                  cursor: "default"
+                }}
+              />
+            )
+          })}
+        </div>
+        <p style={{ fontSize: 12, color: "var(--text-3)" }}>Hover over a cell to see the amount</p>
       </div>
-      <p style={{ fontSize: 12, color: "#888" }}>Hover over a cell to see the amount</p>
 
-      <h2>Spending Over Time</h2>
-      <ResponsiveContainer width="100%" height={250}>
-        <LineChart data={lineData}>
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip formatter={(v) => `₹${v}`} />
-          <Line type="monotone" dataKey="total" stroke="#6366f1" strokeWidth={2} dot />
-        </LineChart>
-      </ResponsiveContainer>
+      <div className="card" style={{ padding: "1.5rem" }}>
+        <h2 className="section-title" style={{ marginBottom: "1rem" }}>Spending Over Time</h2>
+        <ResponsiveContainer width="100%" height={250}>
+          <LineChart data={lineData}>
+            <XAxis dataKey="date" stroke="var(--text-3)" fontSize={11} />
+            <YAxis stroke="var(--text-3)" fontSize={11} />
+            <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-1)" }} formatter={(v) => `₹${v}`} />
+            <Line type="monotone" dataKey="total" stroke="#6366f1" strokeWidth={2} dot />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
 
-      <h2>Spending by Category</h2>
-      <ResponsiveContainer width="100%" height={300}>
-        <PieChart>
-          <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false} label={renderCustomLabel}>
-            {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-          </Pie>
-          <Tooltip formatter={(v) => `₹${v}`} />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "1.5rem" }}>
+        <div className="card" style={{ padding: "1.5rem" }}>
+          <h2 className="section-title" style={{ marginBottom: "1rem" }}>Spending by Category</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} labelLine={false} label={renderCustomLabel}>
+                {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Pie>
+              <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-1)" }} formatter={(v) => `₹${v}`} />
+              <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-2)" }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
 
-      <h2>This Month vs Last Month</h2>
-      <ResponsiveContainer width="100%" height={250}>
-        <BarChart data={barData}>
-          <XAxis dataKey="month" />
-          <YAxis />
-          <Tooltip formatter={(v) => `₹${v}`} />
-          <Legend />
-          <Bar dataKey="total" fill="#6366f1" radius={[4, 4, 0, 0]} />
-        </BarChart>
-      </ResponsiveContainer>
+        <div className="card" style={{ padding: "1.5rem" }}>
+          <h2 className="section-title" style={{ marginBottom: "1rem" }}>This Month vs Last Month</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={barData}>
+              <XAxis dataKey="month" stroke="var(--text-3)" fontSize={11} />
+              <YAxis stroke="var(--text-3)" fontSize={11} />
+              <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", color: "var(--text-1)" }} formatter={(v) => `₹${v}`} />
+              <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-2)" }} />
+              <Bar dataKey="total" fill="#6366f1" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
     </div>
   )
 }

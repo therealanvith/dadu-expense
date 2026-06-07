@@ -6,7 +6,7 @@ export async function parseExpense(text: string) {
 
   const prompt = `Extract expense details from this text and return ONLY a JSON object with no markdown or extra text:
 {"amount": number, "category": string, "description": string}
-Categories must be one of: food, travel, health, shopping, entertainment, investment other
+Categories must be one of: food, travel, health, shopping, entertainment, investments, other
 Text: "${text}"`
 
   const result = await model.generateContent(prompt)
