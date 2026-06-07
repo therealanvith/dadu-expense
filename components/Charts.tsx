@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
 "use client"
 
 import {
@@ -11,8 +10,8 @@ type Expense = {
   id: string
   amount: number
   category: string
-  date: string
   created_at: string
+  description: string
 }
 
 type Props = { expenses: Expense[] }
@@ -44,14 +43,12 @@ export default function Charts({ expenses }: Props) {
   const lastMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, "0")}`
 
   const thisTotal = expenses.filter(e => {
-    const d = new Date(e.created_at).toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-    const ist = new Date(d)
+    const ist = new Date(new Date(e.created_at).toLocaleString("en-US", { timeZone: "Asia/Kolkata" }))
     return `${ist.getFullYear()}-${String(ist.getMonth() + 1).padStart(2, "0")}` === thisMonth
   }).reduce((s, e) => s + e.amount, 0)
 
   const lastTotal = expenses.filter(e => {
-    const d = new Date(e.created_at).toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-    const ist = new Date(d)
+    const ist = new Date(new Date(e.created_at).toLocaleString("en-US", { timeZone: "Asia/Kolkata" }))
     return `${ist.getFullYear()}-${String(ist.getMonth() + 1).padStart(2, "0")}` === lastMonth
   }).reduce((s, e) => s + e.amount, 0)
 
@@ -59,6 +56,30 @@ export default function Charts({ expenses }: Props) {
     { month: "Last Month", total: lastTotal },
     { month: "This Month", total: thisTotal }
   ]
+
+  const heatmapData: Record<string, number> = {}
+  const today = new Date()
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    const key = d.toISOString().slice(0, 10)
+    heatmapData[key] = 0
+  }
+  expenses.forEach(e => {
+    const key = new Date(e.created_at).toISOString().slice(0, 10)
+    if (key in heatmapData) heatmapData[key] += e.amount
+  })
+  const heatmapDays = Object.entries(heatmapData)
+  const maxAmount = Math.max(...heatmapDays.map(([, v]) => v), 1)
+
+  function heatColor(amount: number) {
+    if (amount === 0) return "#1a1a2e"
+    const intensity = amount / maxAmount
+    if (intensity < 0.25) return "#312e6e"
+    if (intensity < 0.5) return "#4f46e5"
+    if (intensity < 0.75) return "#6366f1"
+    return "#818cf8"
+  }
 
   const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, value }: any) => {
     const RADIAN = Math.PI / 180
@@ -74,6 +95,18 @@ export default function Charts({ expenses }: Props) {
 
   return (
     <div>
+      <h2>Spending Heatmap (Last 30 Days)</h2>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        {heatmapDays.map(([date, amount]) => (
+          <div
+            key={date}
+            title={`${date}: ₹${Math.round(amount)}`}
+            style={{ width: 28, height: 28, borderRadius: 4, background: heatColor(amount), cursor: "default" }}
+          />
+        ))}
+      </div>
+      <p style={{ fontSize: 12, color: "#888" }}>Hover over a cell to see the amount</p>
+
       <h2>Spending Over Time</h2>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={lineData}>
@@ -87,16 +120,7 @@ export default function Charts({ expenses }: Props) {
       <h2>Spending by Category</h2>
       <ResponsiveContainer width="100%" height={300}>
         <PieChart>
-          <Pie
-            data={pieData}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            outerRadius={100}
-            labelLine={false}
-            label={renderCustomLabel}
-          >
+          <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false} label={renderCustomLabel}>
             {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
           <Tooltip formatter={(v) => `₹${v}`} />

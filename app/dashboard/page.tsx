@@ -8,13 +8,13 @@ import OcrUpload from "@/components/OcrUpload"
 import ExpenseTable from "@/components/ExpenseTable"
 import Charts from "@/components/Charts"
 import BudgetManager from "@/components/BudgetManager"
+import SubscriptionManager from "@/components/SubscriptionManager"
 
 type Expense = {
   id: string
   amount: number
   category: string
   description: string
-  date: string
   source: string
   created_at: string
 }
@@ -28,29 +28,38 @@ export default function DashboardPage() {
     if (status === "unauthenticated") router.push("/login")
   }, [status, router])
 
+  useEffect(() => {
+    if (status !== "authenticated") return
+    fetch("/api/expenses")
+      .then(r => r.json())
+      .then(data => setExpenses(data))
+  }, [status])
+
+  useEffect(() => {
+    if (status !== "authenticated") return
+    fetch("/api/process-subscriptions", { method: "POST" })
+      .then(r => r.json())
+      .then(data => { if (data.processed > 0) fetchExpenses() })
+    fetchExpenses()
+  }, [status])
+
+
   async function fetchExpenses() {
     const res = await fetch("/api/expenses")
     const data = await res.json()
     setExpenses(data)
   }
 
-  useEffect(() => {
-  if (status !== "authenticated") return
-  fetch("/api/expenses")
-    .then(r => r.json())
-    .then(data => setExpenses(data))
-}, [status])
-
-  async function handleExpenseParsed(expense: { amount: number; category: string; description: string }, source: string) {
+  async function handleExpenseParsed(
+    expense: { amount: number; category: string; description: string },
+    source: string
+  ) {
     await fetch("/api/expenses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...expense,
-        date: new Date().toISOString().split("T")[0],
-        source
-      })
+      body: JSON.stringify({ ...expense, source })
     })
+    await fetch("/api/alerts", { method: "POST" })
     fetchExpenses()
   }
 
@@ -67,6 +76,7 @@ export default function DashboardPage() {
       <button onClick={() => signOut({ callbackUrl: "/login" })}>Sign Out</button>
       <VoiceInput onParsed={(e) => handleExpenseParsed(e, "voice")} />
       <OcrUpload onParsed={(e) => handleExpenseParsed(e, "ocr")} />
+      <SubscriptionManager />
       <ExpenseTable expenses={expenses} onDelete={handleDelete} onEdit={fetchExpenses} />
       <Charts expenses={expenses} />
       <BudgetManager expenses={expenses} />

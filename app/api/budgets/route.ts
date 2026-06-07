@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { auth } from "@/auth"
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const session = await auth()

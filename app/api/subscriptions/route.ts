@@ -3,17 +3,29 @@ import { supabaseAdmin } from "@/lib/supabase-admin"
 import { auth } from "@/auth"
 export const dynamic = 'force-dynamic'
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+export async function GET() {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const body = await req.json()
   const { data, error } = await supabaseAdmin
-    .from("expenses")
-    .update(body)
-    .eq("id", id)
+    .from("subscriptions")
+    .select("*")
     .eq("user_id", session.user.email!)
+    .order("next_due_date", { ascending: true })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json(data)
+}
+
+export async function POST(req: NextRequest) {
+  const session = await auth()
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { name, amount, category, frequency, next_due_date } = await req.json()
+
+  const { data, error } = await supabaseAdmin
+    .from("subscriptions")
+    .insert({ user_id: session.user.email!, name, amount, category, frequency, next_due_date })
     .select()
     .single()
 
@@ -21,17 +33,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   return NextResponse.json(data)
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+export async function DELETE(req: NextRequest) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const { id } = await req.json()
+
   const { error } = await supabaseAdmin
-    .from("expenses")
+    .from("subscriptions")
     .delete()
     .eq("id", id)
     .eq("user_id", session.user.email!)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ ok: true })
 }
