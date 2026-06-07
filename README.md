@@ -1,6 +1,8 @@
-# Kuberly
+# Kuberly — AI-Powered Expense Tracker
 
 Kuberly is a professional, AI-powered personal finance and expense management platform built using **Next.js 15**, **Supabase**, **Tailwind CSS**, and **Google Gemini AI**. It is designed with a premium, minimal aesthetic, utilizing a custom warm-beige theme in light mode, clean border radii, and a complete suite of vector SVG iconography.
+
+🔗 **Live Demo**: [https://dadu-expense.vercel.app](https://dadu-expense.vercel.app)
 
 ---
 
@@ -14,6 +16,19 @@ Kuberly is a professional, AI-powered personal finance and expense management pl
 6. [Design System & Styling Tokens](#design-system--styling-tokens)
 7. [Environment Variables Setup](#environment-variables-setup)
 8. [Getting Started (Local Deployment)](#getting-started-local-deployment)
+
+---
+
+## Test Credentials
+
+To explore the app without signing up:
+
+| Field    | Value                        |
+|----------|------------------------------|
+| Email    | `admin.daduexpenses@gmail.com`   |
+| Password | `Admin123`  |
+
+Or sign in with Google using any Google account.
 
 ---
 
@@ -80,7 +95,12 @@ CREATE TABLE subscriptions (
 
 ## Key Features
 
-### 1. Intelligent Expense Input
+### 1. Authentication
+- **Google OAuth** — one-click sign in with any Google account via NextAuth v5.
+- **Email + Password** — traditional credentials-based login with secure session handling.
+- Sessions are JWT-based, user identity is their email, used as `user_id` across all tables.
+
+### 2. Intelligent Expense Input
 - **Voice Parser**: A recording module powered by the browser's SpeechRecognition API. The audio transcript is processed via a server-side Gemini prompt that maps transaction descriptions (e.g. *"spent five hundred and twenty on coffee"*) into:
   ```json
   { "amount": 520, "category": "food", "description": "Coffee" }
@@ -94,25 +114,41 @@ CREATE TABLE subscriptions (
 - **Standardized Timezone**: Programmatic charts and heatmap calculations normalize dates using the Indian Standard Timezone (`Asia/Kolkata`) and local formatting (`DD/MM/YYYY`).
 
 ### 3. Smart Budgets & Alerts
-- **35% Auto-Suggest Margin**: Calculates average historical spending from the past 30 days and suggests standard category budget limits set at exactly **35% above** that average.
-- **Flagged Unusual Spikes**: Detects unusual expense amounts that exceed typical daily category averages.
-- **Alert Flags**: Inline warnings `(Near limit)` at 80% capacity and `(Over limit)` at 100% capacity.
+- **Auto-Suggest Margin**: Calculates average historical spending from the past 30 days and suggests standard category budget limits set above that average.
+- **Flagged Unusual Spikes**: Detects unusual expense amounts that exceed typical daily category averages (2× category average, minimum 3 expenses).
+- **Alert Flags**: Inline warnings at 80% capacity (⚠️ Near limit) and 100% capacity (🚨 Over limit).
+- **Overall Monthly Budget**: Set a single limit across all categories in addition to per-category limits.
 
 ### 4. Subscription Renewal Engine
 - Running POST queries on `/api/process-subscriptions` checks for active subscriptions whose `next_due_date` is today or earlier, automatically inserts a corresponding transaction into `expenses` (labeled `source: "subscription"`), and advances the next due date.
+- Processes silently on every dashboard load — no cron job required.
 
-### 5. Document Printing (PDF)
-- Uses custom CSS `@media print` layout modifiers to render a clean, high-contrast black-and-white grid suitable for generating PDF exports.
+### 5. Email Alerts & Monthly Summary
+- Budget alert emails sent via Brevo when any category or overall budget hits 80%.
+- Monthly summary email with full category breakdown, triggerable manually from the dashboard.
+- Sends to any user's email address — no custom domain required.
+
+### 6. Export (CSV & PDF)
+- **CSV Export** — downloads all currently filtered expenses as a `.csv` file. Respects active search, category, source, and date filters.
+- **PDF Export** — opens a browser print dialog with a cleanly formatted expense table including totals. Also respects active filters.
+- No external libraries needed — both use pure browser APIs.
 
 ---
 
 ## API Endpoints
 
-- **`GET /api/suggest-budgets`**: Evaluates the last 30 days of user expenses and returns suggested budget limits with a 35% margin.
-- **`POST /api/parse-expense`**: Backend route interfacing with the Gemini API to format unstructured strings into JSON payloads.
-- **`POST /api/alerts`**: Checks current spending against set budgets and sends transactional warnings via Brevo SMTP if thresholds are crossed.
-- **`POST /api/monthly-summary`**: Assembles a monthly spending review email template.
-- **`POST /api/process-subscriptions`**: Cron-style endpoint that scans and processes overdue subscriptions.
+| Method | Route | Description |
+|---|---|---|
+| GET/POST | `/api/expenses` | Fetch + create expenses |
+| PATCH/DELETE | `/api/expenses/[id]` | Edit + delete expense |
+| POST | `/api/parse-expense` | Gemini AI parsing for voice + OCR |
+| GET/POST | `/api/budgets` | Fetch + set budget limits |
+| POST | `/api/alerts` | Check budgets + send alert email via Brevo |
+| GET | `/api/suggest-budgets` | Auto-suggest limits from last 30 days |
+| GET | `/api/flag-expenses` | Detect unusual expenses (2× category average) |
+| POST | `/api/monthly-summary` | Send monthly summary email via Brevo |
+| GET/POST/DELETE | `/api/subscriptions` | Manage subscriptions |
+| POST | `/api/process-subscriptions` | Auto-process due subscriptions on dashboard load |
 
 ---
 
@@ -124,9 +160,12 @@ CREATE TABLE subscriptions (
 │   │   ├── alerts/                  # Budget threshold alerts endpoint
 │   │   ├── budgets/                 # CRUD endpoint for budget limits
 │   │   ├── expenses/                # CRUD endpoint for expense items
+│   │   ├── flag-expenses/           # Unusual expense detection
+│   │   ├── monthly-summary/         # Monthly summary email trigger
 │   │   ├── parse-expense/           # Gemini AI extraction API
-│   │   ├── process-subscriptions/   # Auto-renewal check cron
-│   │   └── suggest-budgets/         # 35% budget recommendation route
+│   │   ├── process-subscriptions/   # Auto-renewal check on dashboard load
+│   │   ├── subscriptions/           # CRUD endpoint for subscriptions
+│   │   └── suggest-budgets/         # Budget recommendation route
 │   ├── budgets/                     # Budget management page
 │   ├── charts/                      # Graphs, heatmaps, and stats page
 │   ├── dashboard/                   # Main statistics & overview
@@ -137,13 +176,14 @@ CREATE TABLE subscriptions (
 ├── components/
 │   ├── BudgetManager.tsx            # Budget status progress & alerts UI
 │   ├── Charts.tsx                   # Heatmaps & Recharts components
-│   ├── ExpenseTable.tsx             # Paginated tabular transactions & PDF export
+│   ├── ExpenseTable.tsx             # Tabular transactions, CSV & PDF export
 │   ├── FloatingAdd.tsx              # Quick-add float button & manual form modal
 │   ├── Navbar.tsx                   # Pill badge navigation and theme toggle
 │   ├── OcrUpload.tsx                # Receipt reader UI using Tesseract
 │   ├── SubscriptionManager.tsx      # Subscriptions list & scheduling form
 │   ├── ThemeProvider.tsx            # Dark/light theme context provider
-│   └── Toast.tsx                    # Event-based non-intrusive alerts
+│   ├── Toast.tsx                    # Event-based non-intrusive alerts
+│   └── VoiceInput.tsx               # Voice expense entry with text fallback
 ├── lib/
 │   ├── email.ts                     # Brevo notification HTML templates
 │   ├── parseExpense.ts              # Gemini API system instruction prompts
@@ -183,10 +223,15 @@ Globally scaled down to provide a clean, modern aesthetic:
 
 Create a `.env.local` file in the root directory:
 
+Create a `.env.local` file in the root directory:
+
 ```env
-# NextAuth Session Secret
-NEXTAUTH_SECRET=generate_a_random_32_char_string
-NEXTAUTH_URL=http://localhost:3000
+# Auth.js v5 Secret
+AUTH_SECRET=generate_a_random_32_char_string
+
+# Google OAuth
+AUTH_GOOGLE_ID=your_google_client_id
+AUTH_GOOGLE_SECRET=your_google_client_secret
 
 # Supabase Admin Connection
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
@@ -224,3 +269,10 @@ Execute the development build server locally:
 npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) on your local browser to log in and start tracking your expenses!
+
+---
+
+## Known Limitations
+
+- **Voice input** — only works in Chrome and Edge (Web Speech API). Text fallback available for other browsers.
+- **Email sender** — uses `nanvith2007@gmail.com` via Brevo. A custom domain would be used in a production deployment.
