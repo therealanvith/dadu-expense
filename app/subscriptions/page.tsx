@@ -2,20 +2,17 @@
 
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import SubscriptionManager from "@/components/SubscriptionManager"
 
 export default function SubscriptionsPage() {
   const { status } = useSession()
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
-
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login")
-    if (status === "authenticated") setLoading(false)
   }, [status, router])
 
-  if (status === "loading" || loading) {
+  if (status !== "authenticated") {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
         <span className="text-muted">Loading...</span>
