@@ -210,18 +210,23 @@ Kuberly implements a premium, cohesive UI design centered around these design to
 }
 ```
 
-### Sharper Border Radii
-Globally scaled down to provide a clean, modern aesthetic:
-- `--radius-sm`: `2px`
-- `--radius-md`: `4px`
-- `--radius-lg`: `6px`
-- `--radius-xl`: `8px`
+### Dark Mode Theme (Default / Deep Charcoal)
+```css
+:root {
+  --bg-base: #0c0c0f;        /* Deep charcoal base */
+  --bg-surface: #111115;     /* Sleek dark cards */
+  --bg-elevated: #18181d;    /* Elevated elements & inputs */
+  --border: rgba(255, 255, 255, 0.07); /* Subtle borders */
+  --border-strong: rgba(255, 255, 255, 0.13); /* Strong boundaries */
+  --text-1: #f2f2f4;         /* High-contrast text */
+  --text-2: #9898a6;
+  --text-3: #5c5c6e;
+}
+```
 
 ---
 
 ## Environment Variables Setup
-
-Create a `.env.local` file in the root directory:
 
 Create a `.env.local` file in the root directory:
 
